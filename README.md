@@ -395,3 +395,6 @@ Tālāk pārstrādātā informācija tiek nosūtīta uz InfluxDB izmantojot Infl
 
 ## Datu vizualizācija
 Datu vizualizācija tiek īstenota izmantojot Node-RED Dashboard
+
+![image](https://github.com/user-attachments/assets/1d410bbc-e08f-4f80-a855-acd091720a30)
+
