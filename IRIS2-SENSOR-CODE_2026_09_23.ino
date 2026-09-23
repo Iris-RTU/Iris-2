@@ -21,7 +21,7 @@ FDC2214 capsense(FDC2214_I2C_ADDR_0);  // Use FDC2214_I2C_ADDR_1
 // ************************ SENSOR SETTINGS *******************************
 char groupID[] = "$aSH";  // $EC(0...9)  $PH(10...19)  $TH(20...29)  $THCO2(30...39)  $SH(40...49) $aSH(40, 49)  $CV(50...59)   $TEST
 char sensID[] = "46";     // 0  1  2  3 .... 59
-char defaut_channel = "100";
+char defaut_channel = "C100";  //Needs to have all three digits: example Channel 30 = "C030"
 long sendPeriodMinutes = 1;
 bool system_with_relay = 0;  //enables channel switching
 
