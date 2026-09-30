@@ -19,9 +19,9 @@ SoftwareSerial radio(3, 2);  // RX, TX
 FDC2214 capsense(FDC2214_I2C_ADDR_0);  // Use FDC2214_I2C_ADDR_1
 
 // ************************ SENSOR SETTINGS *******************************
-char groupID[] = "$aSH";  // $EC(0...9)  $PH(10...19)  $TH(20...29)  $THCO2(30...39)  $SH(40...49) $aSH(40, 49)  $CV(50...59)   $TEST
-char sensID[] = "46";     // 0  1  2  3 .... 59
-char defaut_channel = "C100";  //Needs to have all three digits: example Channel 30 = "C030"
+char groupID[] = "$aSH";  // $EC   $PH   $TH   $THCO2   $aSH   $CV   $TEST
+char sensID[] = "36";     // 0  1  2  3 .... 59
+char default_channel[] = "C100";  //Needs to have all three digits: example Channel 30 = "C030"
 long sendPeriodMinutes = 1;
 bool system_with_relay = 0;  //enables channel switching
 
@@ -70,6 +70,7 @@ byte counterr = 4;
 
 int radioCH[] = { 10, 110, 20, 30 };
 String radioCH_default = "AT+C";
+
 String radioCH_SET = radioCH_default + radioCH[0];
 int channel_SEL = 0;
 
@@ -226,12 +227,12 @@ void setup() {
   digitalWrite(radioSetPin, LOW);
 
   Serial.println("Radio Settings:");
-  delay(100);
+  delay(200);
 
-
-  radio.print("AT+");
-  radio.print(defaut_channel);
-  delay(100);
+radioCH_SET = "AT+" + default_channel;  //output should be AT+Cxx
+  radio.print(radioCH_SET);
+Serial.println(radioCH_SET);
+  delay(200);
   radio.print("AT+P8");
   delay(100);
   radio.print("AT+RX");
