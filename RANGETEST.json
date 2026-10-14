@@ -1,0 +1,473 @@
+[
+    {
+        "id": "286bdfd151f80ec2",
+        "type": "tab",
+        "label": "RANGETEST",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "a49509720f55c50b",
+        "type": "rpi-gpio out",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "pin": "18",
+        "set": false,
+        "level": "0",
+        "freq": "",
+        "out": "out",
+        "bcm": true,
+        "x": 540,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "d280110eb7e4666d",
+        "type": "inject",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "0",
+        "payloadType": "num",
+        "x": 390,
+        "y": 340,
+        "wires": [
+            [
+                "a49509720f55c50b",
+                "e3399449a7485d83"
+            ]
+        ]
+    },
+    {
+        "id": "e34a46bd46770c55",
+        "type": "serial out",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "serial": "dc8e402ba948be73",
+        "x": 880,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "4d1075c4be2236d1",
+        "type": "function",
+        "z": "286bdfd151f80ec2",
+        "name": "kanāls",
+        "func": "msg.payload = \"AT+C004\" // uzstāda kanālu uz 100\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 730,
+        "y": 300,
+        "wires": [
+            [
+                "a44587203fc12d37",
+                "e34a46bd46770c55",
+                "173c0938f099f17a"
+            ]
+        ]
+    },
+    {
+        "id": "e3399449a7485d83",
+        "type": "delay",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "pauseType": "delay",
+        "timeout": "100",
+        "timeoutUnits": "milliseconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 550,
+        "y": 300,
+        "wires": [
+            [
+                "4d1075c4be2236d1"
+            ]
+        ]
+    },
+    {
+        "id": "4dfda3952c497af9",
+        "type": "function",
+        "z": "286bdfd151f80ec2",
+        "name": "jauda",
+        "func": "msg.payload = \"AT+P4\" // uzstāda jaudu uz maksimālo 20 dBm\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 730,
+        "y": 440,
+        "wires": [
+            [
+                "06be921ecebaf498",
+                "a97ab10dc6a9c51c",
+                "6007caaf99ce7168"
+            ]
+        ]
+    },
+    {
+        "id": "a44587203fc12d37",
+        "type": "delay",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "pauseType": "delay",
+        "timeout": "100",
+        "timeoutUnits": "milliseconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 890,
+        "y": 300,
+        "wires": [
+            [
+                "4dfda3952c497af9"
+            ]
+        ]
+    },
+    {
+        "id": "8ae62b8202a21ebc",
+        "type": "function",
+        "z": "286bdfd151f80ec2",
+        "name": "parametri",
+        "func": "msg.payload = \"AT+RX\" // atgriež visus radio moduļa iestatījumus\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 720,
+        "y": 580,
+        "wires": [
+            [
+                "a8c3f79f1c1ee90f",
+                "946fd4c9bd18219f",
+                "955832c5168a97a8"
+            ]
+        ]
+    },
+    {
+        "id": "06be921ecebaf498",
+        "type": "delay",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "pauseType": "delay",
+        "timeout": "100",
+        "timeoutUnits": "milliseconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 890,
+        "y": 440,
+        "wires": [
+            [
+                "8ae62b8202a21ebc"
+            ]
+        ]
+    },
+    {
+        "id": "a97ab10dc6a9c51c",
+        "type": "serial out",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "serial": "dc8e402ba948be73",
+        "x": 880,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "a8c3f79f1c1ee90f",
+        "type": "serial out",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "serial": "dc8e402ba948be73",
+        "x": 880,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "173c0938f099f17a",
+        "type": "debug",
+        "z": "286bdfd151f80ec2",
+        "name": "komanda",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 880,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "6007caaf99ce7168",
+        "type": "debug",
+        "z": "286bdfd151f80ec2",
+        "name": "komanda",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 880,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "946fd4c9bd18219f",
+        "type": "debug",
+        "z": "286bdfd151f80ec2",
+        "name": "komanda",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 880,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "955832c5168a97a8",
+        "type": "delay",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "pauseType": "delay",
+        "timeout": "100",
+        "timeoutUnits": "milliseconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 890,
+        "y": 580,
+        "wires": [
+            [
+                "5753376efd557b1e"
+            ]
+        ]
+    },
+    {
+        "id": "5753376efd557b1e",
+        "type": "function",
+        "z": "286bdfd151f80ec2",
+        "name": "SET HIGH",
+        "func": "msg.payload = 1;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1110,
+        "y": 580,
+        "wires": [
+            [
+                "63385299053e58bd"
+            ]
+        ]
+    },
+    {
+        "id": "63385299053e58bd",
+        "type": "rpi-gpio out",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "pin": "18",
+        "set": false,
+        "level": "0",
+        "freq": "",
+        "out": "out",
+        "bcm": true,
+        "x": 1260,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "69cf8fcd0c61e2b1",
+        "type": "function",
+        "z": "286bdfd151f80ec2",
+        "name": "ARDUINO to RPi",
+        "func": "var now = new Date();\nvar serverTime = now.getTime();\n\nvar msg1 = {};\nvar msg2 = {};\nvar value;\n\n//var size1 = msg.payload.length;                   // pilnais RAW ziņojuma garums\nvar output1 = msg.payload.split(\";\");               // atmetam terminatoru -> \";\"\n\nvar fullMessage = output1[0];                       // lietderīgais ziņojums ar ziņojuma izmēra vērtību \n\nvar receivedMsgSize = fullMessage.length;           //  saņemtā lietderīgā ziņojuma izmērs\nmsg.payload = receivedMsgSize;   // 22\n//node.send(msg);\n\nvar messageParts = fullMessage.split(\"/\");          // lietderīgā ziņojuma masīva sadalīšana pa elementiem       \n\nvar receivedMsgDataCount = messageParts.length;     // nosakām lietderīgā ziņojuma elementu skaitu (lai atrastu pēdējo kas glabā sevī ziņojuma izmēru)\nmsg.payload = receivedMsgDataCount;   // 6\n//node.send(msg);\n\nvar sendedMsgSize = parseInt(messageParts[receivedMsgDataCount - 1]);       // nosūtītais ziņojuma izmērs, ko noteicis pats sūtītājs (jāsakrīt ar receivedMsgSize)\nmsg.payload = sendedMsgSize;     // 22\n//node.send(msg);\n\nif (receivedMsgSize == sendedMsgSize) {                                   // ja ziņojums saņemts pilnā apmērā, veidojam json prieks InfluxDB\n\nvar groupID = messageParts[0];                                            // nosakām sensoru grupu no kuras atnācis ziņojums\nvar sensorID = messageParts[1];                                           // nosakām sensoru ID no kuras atnācis ziņojums\n\nif (!/^\\d+$/.test(sensorID)) {\n    msg.payload = \"Invalid sensor ID\";\n    node.send(msg);\n    return;\n}\n\n    switch (groupID) {\n        case \"$TH\":\n            msg1.measurement = \"TH\";\n            msg.payload = \"TH\";\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"temperature\": parseFloat(messageParts[2]) / 100,\n                    \"humidity\": parseFloat(messageParts[3]) / 100,\n                    \"voltage\": parseFloat(messageParts[4]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            if (messageParts[2]/100 > 10) global.set(\"Temp1\", messageParts[2]/100);\n            if (messageParts[3] / 100 > 10) global.set(\"Hum1\", messageParts[3]/100);\n            break;\n\n        case \"$THCO2\":\n            msg1.measurement = \"THCO2\";\n            msg.payload = \"THCO2\";     // 22\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"temperature\": parseFloat(messageParts[2]) / 100,\n                    \"humidity\": parseFloat(messageParts[3]) / 100,\n                    \"co2\": parseFloat(messageParts[4]),\n                    \"voltage\": parseFloat(messageParts[5]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            if (messageParts[2] / 100 > 10) global.set(\"Temp2\", messageParts[2]/100);\n            if (messageParts[3] / 100 > 10) global.set(\"Hum2\", messageParts[3]/100);\n            if (messageParts[4] > 410) global.set(\"Co22\", messageParts[4]);\n            break; \n\n        case \"$EC\":\n            msg1.measurement = \"EC\";\n            msg.payload = \"EC\";     // 22\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"EC\": parseFloat(messageParts[2]) / 10,\n                    \"voltage\": parseFloat(messageParts[3]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            global.set(\"EC3\", messageParts[2] / 10);\n            break;\n\n        case \"$PH\":\n            msg1.measurement = \"PH\";\n            msg.payload = \"PH\";\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"PH\": parseFloat(messageParts[2]) / 100,\n                    \"voltage\": parseFloat(messageParts[3]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            if (messageParts[2] / 100 > 3)  global.set(\"PH4\", messageParts[2] / 100);\n            break;\n\n\n        case \"$SH\":\n            msg1.measurement = \"SH\";\n            msg.payload = \"SH\";\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"SH_c\": parseFloat(messageParts[2]),\n                    \"SH_proc\": parseFloat(messageParts[3]),\n                    \"voltage\": parseFloat(messageParts[4]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            if (messageParts[2] / 100 > 3) global.set(\"SH5\", messageParts[2] / 100);\n            break;\n\n        case \"$cv\":\n            msg1.measurement = \"CV\";\n            msg.payload = \"CV\";\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"CV\": parseFloat(messageParts[2]) / 100,\n                    \"voltage\": parseFloat(messageParts[3]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            if (messageParts[2] / 100 > 3) global.set(\"CV6\", messageParts[2] / 100);\n            break;\n\n        case \"$aSH\":\n            msg1.measurement = \"aSH\";\n            msg.payload = \"aSH\";\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"SH_c\": parseFloat(messageParts[2]),\n                    \"SH_proc\": parseFloat(messageParts[3]),\n                    \"voltage\": parseFloat(messageParts[4]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n            \n            if (messageParts[2] / 100 > 3) global.set(\"aSH5\", messageParts[2] / 100);\n            break;\n\n            case \"$RANGETEST\":\n            msg1.measurement = \"THCO2\";\n            msg.payload = \"THCO2\";     // 22\n            msg1.payload = [\n                {\n                    \"sensorID\": sensorID,\n                    \"temperature\": parseFloat(messageParts[2]) / 100,\n                    \"humidity\": parseFloat(messageParts[3]) / 100,\n                    \"co2\": parseFloat(messageParts[4]),\n                    \"voltage\": parseFloat(messageParts[5]) / 100,\n                },\n                {\n                    \"sensor_ID\": sensorID,\n                }\n            ];\n    }\n    \n    let noww = new Date();\n    let seconds = noww.getSeconds();    // Tekošās sekundes\n    let milliseconds = noww.getMilliseconds(); // Tekošās milisekundes\n    msg2.payload = `${sensorID},${seconds},${milliseconds}`; // Formatē kā 'sekundes,milisekundes'\n    return [msg1, msg2];\n}\nelse {\n    msg.payload = \"The message size is incorrect\";     \n    node.send(msg);\n}\n",
+        "outputs": 2,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 120,
+        "wires": [
+            [
+                "d034a2f395749c9c"
+            ],
+            [
+                "8e90ee4fa0029ade",
+                "5f540511d2ceb94b"
+            ]
+        ]
+    },
+    {
+        "id": "71906dc80f6f2f26",
+        "type": "serial in",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "serial": "05faad8fe6f45ae9",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "dfddceea5be80aeb",
+                "69cf8fcd0c61e2b1"
+            ]
+        ]
+    },
+    {
+        "id": "dfddceea5be80aeb",
+        "type": "debug",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 310,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "d034a2f395749c9c",
+        "type": "debug",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 570,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "8e90ee4fa0029ade",
+        "type": "debug",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 570,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "5f540511d2ceb94b",
+        "type": "serial out",
+        "z": "286bdfd151f80ec2",
+        "name": "",
+        "serial": "05faad8fe6f45ae9",
+        "x": 550,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "dc8e402ba948be73",
+        "type": "serial-port",
+        "name": "radio set",
+        "serialport": "/dev/ttyS0",
+        "serialbaud": "9600",
+        "databits": 8,
+        "parity": "none",
+        "stopbits": 1,
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "\\n",
+        "bin": "false",
+        "out": "char",
+        "addchar": "",
+        "responsetimeout": 10000
+    },
+    {
+        "id": "05faad8fe6f45ae9",
+        "type": "serial-port",
+        "name": "rxtx",
+        "serialport": "/dev/ttyS0",
+        "serialbaud": "9600",
+        "databits": "8",
+        "parity": "none",
+        "stopbits": "1",
+        "waitfor": "$",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "100",
+        "bin": "false",
+        "out": "interbyte",
+        "addchar": "",
+        "responsetimeout": "10000"
+    }
+]
