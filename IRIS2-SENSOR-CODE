@@ -1,3 +1,42 @@
+// ************************ SENSOR SETTINGS *******************************
+// Atkomentē TIKAI VIENU sensora tipu. Tiek kompilēts tikai šī tipa kods un bibliotēkas,
+// tāpēc RAM un flash patēriņš ir daudz mazāks nekā tad, ja tiek kompilēti visi tipi.
+// #define SENSOR_PH
+// #define SENSOR_EC
+// #define SENSOR_TH
+#define SENSOR_THCO2
+// #define SENSOR_SH
+// #define SENSOR_ASH
+// #define SENSOR_TEST
+
+
+char sensID[] = "25";     // 0  1  2  3 .... 59
+String defaut_channel = "C100";  //Needs to have all three digits: example Channel 30 = "C030"
+long sendPeriodMinutes = 1;
+bool system_with_relay = 0;  //enables channel switching
+bool CALIBRATION_SEQ=0; //will be asked in Serial monitor when connected to a serial adapter & have pressed reset. please do not touch 
+
+
+
+
+#if defined(SENSOR_EC)
+const char groupID[] = "$EC";
+#elif defined(SENSOR_PH)
+const char groupID[] = "$PH";
+#elif defined(SENSOR_TH)
+const char groupID[] = "$TH";
+#elif defined(SENSOR_THCO2)
+const char groupID[] = "$THCO2";
+#elif defined(SENSOR_SH)
+const char groupID[] = "$SH";
+#elif defined(SENSOR_ASH)
+const char groupID[] = "$aSH";
+#elif defined(SENSOR_TEST)
+const char groupID[] = "$TEST";
+#else
+#error "Nav izvēlēts sensora tips: atkomentē vienu #define SENSOR_xxx"
+#endif
+
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include <GyverPower.h>
@@ -5,25 +44,36 @@
 #include <SoftwareSerial.h>
 #include <Wire.h>
 
+// Pēc watchdog restarta WDT paliek ieslēgts (~16 ms). Atslēdzam to pašā sākumā,
+// pirms setup(), citādi MK var nonākt bezgalīgā restartu ciklā (avr-libc ieteikums).
+uint8_t mcusr_mirror __attribute__((section(".noinit")));
+void get_mcusr(void) __attribute__((naked)) __attribute__((used)) __attribute__((section(".init3")));
+void get_mcusr(void) {
+  mcusr_mirror = MCUSR;
+  MCUSR = 0;
+  wdt_disable();
+}
+
+#ifdef SENSOR_THCO2
 #include "SparkFun_SCD30_Arduino_Library.h"  //Click here to get the library: http://librarymanager/All#SparkFun_SCD30
 SCD30 airSensor;
+#endif
 
+#ifdef SENSOR_TH
 #include "Adafruit_SHT31.h"
 bool enableHeater = false;
 uint8_t loopCnt = 0;
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
+#endif
 
 SoftwareSerial radio(3, 2);  // RX, TX
 
+#ifdef SENSOR_SH
 #include "FDC2214.h"
 FDC2214 capsense(FDC2214_I2C_ADDR_0);  // Use FDC2214_I2C_ADDR_1
+#endif
 
-// ************************ SENSOR SETTINGS *******************************
-char groupID[] = "$THCO2";  // $EC   $PH   $TH   $THCO2   $SH   $aSH   $CV   $TEST
-char sensID[] = "48";     // 0  1  2  3 .... 59
-String defaut_channel = "C100";  //Needs to have all three digits: example Channel 30 = "C030"
-long sendPeriodMinutes = 1;
-bool system_with_relay = 0;  //enables channel switching
+
 
 float temp = 20;
 float hum = 50;
@@ -43,7 +93,7 @@ const int voltageReadPin = A0;
 const int analogSensorPin = A1;
 
 char sendData[50] = "";
-char pData[10] = "";
+char pData[12] = "";  // 12, lai ietilptu arī long skaitlis (ltoa)
 
 
 long targetSecond;
@@ -75,6 +125,7 @@ String radioCH_SET = radioCH_default + radioCH[0];
 int channel_SEL = 0;
 
 //********************** PH ************
+#ifdef SENSOR_PH
 // #define USE_PULSE_OUT
 
 #ifdef USE_PULSE_OUT
@@ -85,14 +136,21 @@ Surveyor_pH_Isolated pH = Surveyor_pH_Isolated(A0);
 Surveyor_pH pH = Surveyor_pH(analogSensorPin);
 #endif
 int volt_avg_len = 1000;
+void Ph_cal_seq(const char* string);
+#endif
 
 
 // *********************** EC *******************
+#ifdef SENSOR_EC
 #define rx2 11
 #define tx2 10
 SoftwareSerial myserial(rx2, tx2);
 String sensorstring = "";
 boolean sensor_string_complete = false;
+void print_EC_data(void);
+#endif
+
+void cal_seq();
 
 
 // *********************** SH *******************
@@ -126,6 +184,24 @@ void setup() {
   targetSecond = sensIDint;
 
   Serial.begin(250000);
+  delay(10);
+
+  // ***********Calibrate confirmation dialogue***********
+
+  Serial.println(F("Press enter to enter calibration Mode"));
+  while(millis() <10000) {
+    char we_check_newline = Serial.read();
+    if (we_check_newline == '\n') {   //check if input is the same to newline
+        // Serial.println(F("testpoint"));
+        delay(10);
+        cal_seq();
+            }
+    // Serial.write(".");
+    // (izņemts: we_check_newline = ""; — char mainīgajam tika piešķirta virknes adrese)
+  }
+delay(10);
+
+
   //power.setSleepMode(POWERDOWN_SLEEP);
   //int timeout = power.getMaxTimeout();
 
@@ -149,67 +225,78 @@ void setup() {
   digitalWrite(sensorPowerPin, HIGH);
   
   delay(1000);
-  Wire.begin();
+#if defined(SENSOR_TH) || defined(SENSOR_THCO2) || defined(SENSOR_SH)
+  Wire.begin();  // I2C vajadzīgs tikai I2C sensoriem
   Wire.setClock(50000);
+#endif
 
 
   // ******** SCD30 ***********
+#ifdef SENSOR_THCO2
   if (strcmp(groupID, "$THCO2") == 0) {
 
-    Serial.println("SCD30 test");
+    Serial.println(F("SCD30 test"));
     delay(4000);
     if (airSensor.begin() == false) {
-      Serial.println("Air sensor not detected. Please check wiring. Freezing...");
+      Serial.println(F("Air sensor not detected. Please check wiring. Freezing..."));
       while (1)
         ;
     }
   }
+#endif
 
   // ******** SHT31 ***********
+#ifdef SENSOR_TH
   if (strcmp(groupID, "$TH") == 0) {
     delay(100);
-    Serial.println("SHT31 test");
+    Serial.println(F("SHT31 test"));
     if (!sht31.begin(0x44)) {  // Set to 0x45 for alternate i2c addr
-      Serial.println("Couldn't find SHT31");
+      Serial.println(F("Couldn't find SHT31"));
       while (1) delay(1);
     }
-    Serial.print("Heater Enabled State: ");
+    Serial.print(F("Heater Enabled State: "));
     if (sht31.isHeaterEnabled())
-      Serial.println("ENABLED");
+      Serial.println(F("ENABLED"));
     else
-      Serial.println("DISABLED");
+      Serial.println(F("DISABLED"));
   }
+#endif
 
   // ******** Analog PH ***********
-
+#ifdef SENSOR_PH
   if (strcmp(groupID, "$PH") == 0) {
     power.hardwareDisable(PWR_I2C);
     if (pH.begin()) {
-      Serial.println("Loaded EEPROM");
+      Serial.println(F("Loaded EEPROM"));
     }
   }
+#endif
 
+#ifdef SENSOR_EC
  if (strcmp(groupID, "$EC") == 0) {
   // ******** EC ***********
-  Serial.println("EC test");
+  Serial.println(F("EC test"));
   myserial.begin(9600);      //set baud rate for the software serial port to 9600
   sensorstring.reserve(30);  //set aside some bytes for receiving data from Atlas Scientific product
-  myserial.print("L,0");     //Lai izsledz
+  myserial.print(F("L,0"));     //Lai izsledz
   myserial.print('\r');      //diodi
 
   delay(500);
   digitalWrite(sensorPowerPin, LOW);
   delay(100);
  }
+#endif
 
 
   // ******** SH ***********
+#ifdef SENSOR_SH
   if (strcmp(groupID, "$SH") == 0) {
-    Serial.println("Starting SH sensor");
+    Serial.println(F("Starting SH sensor"));
     calibration = 1;
     bool capOk = capsense.begin(0xF, 0x6, 0x5, true);  //setup all four channels, autoscan with 4 channels, deglitch at 10MHz, internal oscillator
-    Serial.println("SH sensor Started");
+    Serial.println(F("SH sensor Started"));
   }
+#endif
   // ******** aSH ***********
   if (strcmp(groupID, "$aSH") == 0) {
     power.hardwareDisable(PWR_I2C);
@@ -227,20 +314,20 @@ void setup() {
   delay(15);
   digitalWrite(radioSetPin, LOW);
 
-  Serial.println("Radio Settings:");
+  Serial.println(F("Radio Settings:"));
   delay(200);
 
 radioCH_SET = "AT+" + defaut_channel;  //output should be AT+Cxx
   radio.print(radioCH_SET);
 Serial.println(radioCH_SET);
   delay(200);
-  radio.print("AT+P8");
+  radio.print(F("AT+P8"));
   delay(100);
-  radio.print("AT+RX");
+  radio.print(F("AT+RX"));
   delay(100);
   //  while (radio.available() == 0) {
   //    delay(100);
-  //    Serial.println("waiting radiomodule...");
+  //    Serial.println(F("waiting radiomodule..."));
   //  }
   Serial.println(radio.readString());
   delay(10);
@@ -266,13 +353,13 @@ void loop() {
 
 
   //********************************************Channel switching**************************************************
-  // Serial.println("Wake!");
+  // Serial.println(F("Wake!"));
   if ((millis() - tmr5 > sendPeriodMinutes * 60 * 1000) && (system_with_relay)) {  // ja atbildes no RPi nav ilgāk par 3 sūtīšanas periodiem/mēģinājumiem, taisam restartu
     // wdt_enable(WDTO_15MS);
     // if (false) {
     channel_SEL++;
     //check if channel_SEL is larger than actual channels
-    if (channel_SEL > 4) {
+    if (channel_SEL >= (int)(sizeof(radioCH) / sizeof(radioCH[0]))) {  // bija "> 4": radioCH[4] ir ārpus masīva (indeksi 0..3)
       channel_SEL = 0;        // better safe then sorry
       wdt_enable(WDTO_15MS);  // and a reset
       delay(100);
@@ -291,14 +378,14 @@ void loop() {
     delay(30);
     digitalWrite(radioSetPin, LOW);
     delay(30);
-    Serial.println("Radio Settings:");
+    Serial.println(F("Radio Settings:"));
     delay(30);
 
     Serial.println(radioCH_SET);
     // delay(15);
     radio.print(radioCH_SET);
     delay(30);
-    radio.print("AT+RX");
+    radio.print(F("AT+RX"));
     Serial.println(radio.readString());
     delay(30);
     digitalWrite(radioSetPin, HIGH);
@@ -318,11 +405,11 @@ void loop() {
     delay(2);
     radio.write(sendData);
     tmr = millis();
-    Serial.print("Send data: ");
+    Serial.print(F("Send data: "));
     Serial.println(sendData);
 
     // Serial.println(answRec);
-    //Serial.println("Start Waiting Answer");
+    //Serial.println(F("Start Waiting Answer"));
     //  while (radio.available()) radio.read();
     //  delay(2);
     while (millis() - tmr < 1000 && answRec == false) {
@@ -330,7 +417,7 @@ void loop() {
         tmr2 = millis();
         // delay(5);
         String receivedData = radio.readStringUntil('\n');  // Nolasām datus līdz '\n'
-        Serial.print("Ans.received: ");
+        Serial.print(F("Ans.received: "));
         Serial.println(receivedData);
         int firstCommaIndex = receivedData.indexOf(',');  // Meklējam pirmo komatu, lai sadalītu datu
         if (firstCommaIndex != -1) {
@@ -350,11 +437,11 @@ void loop() {
               epochMilliseconds = millisPart.toInt();                 // Milisekundēm int pietiek
 
               // Parādām rezultātu
-              //            Serial.print("Answer is: RecSensor ID: ");
+              //            Serial.print(F("Answer is: RecSensor ID: "));
               //            Serial.print(recSensID);
-              //            Serial.print("  Epoch Seconds: ");
+              //            Serial.print(F("  Epoch Seconds: "));
               //            Serial.print(epochSeconds);
-              //            Serial.print("  Epoch Milliseconds: ");
+              //            Serial.print(F("  Epoch Milliseconds: "));
               //            Serial.println(epochMilliseconds);
             }
 
@@ -362,12 +449,13 @@ void loop() {
 
           } else {
             // Ja sensora ID nesakrīt, iztīram buferi un ignorējam ziņojumu
-            Serial.println("Sensor ID mismatch. Flushing buffer...");
+            Serial.println(F("Sensor ID mismatch. Flushing buffer..."));
             while (radio.available()) {  // Iztīram buferi, lasot visus datus no tā, līdz tas ir tukšs
               radio.read();              // Lasām nevajadzīgos datus no bufera
             }
           }
-          power.calibrate(power.getMaxTimeout());
+          // (izņemts: power.calibrate(power.getMaxTimeout()); — vecākās GyverPower versijās
+          //  getMaxTimeout() bloķē ~8 s, un tālāk loop() tik un tā izsauc power.calibrate())
         }
       }
     }
@@ -375,7 +463,7 @@ void loop() {
 
     digitalWrite(radioPowerPin, LOW);  // izsledzam radiomoduli
     //}
-    if (answRec != true) Serial.println("No answer from Master");
+    if (answRec != true) Serial.println(F("No answer from Master"));
   }
 
 
@@ -393,16 +481,19 @@ void loop() {
   // ********************** VOLTAGE reading
   analogReference(INTERNAL);  //should be internal
   delay(20);
+  for (int i = 0; i < 4; i++) {analogRead(voltageReadPin);} //clearing the ADC  (bija "int i;" — neinicializēts)
+  delay(100);
   digitalWrite(voltagePin, HIGH);
   delay(20);
   voltage = analogRead(voltageReadPin);
   delay(20);
   digitalWrite(voltagePin, LOW);
   voltage = 1.1 * 43 / 10.1 * voltage / 1023;  // Uref * R1 / R2 * ADC / 1023    33K vs 10K
-  Serial.print("V:");
+  Serial.print(F("V:"));
   Serial.println(voltage);
-
-  // ************************************************* THCO2 (SCD30)
+  
+      // ************************************************* THCO2 (SCD30)
+#ifdef SENSOR_THCO2
   if (strcmp(groupID, "$THCO2") == 0) {
     wdt_enable(WDTO_8S);  // sākam čekot uzkaršanos
     digitalWrite(sensorPowerPin, HIGH);
@@ -415,7 +506,7 @@ void loop() {
     delay(10);
     // Serial.println ("Sensor starting");
     while (airSensor.begin() != true) {
-      // Serial.print(".");
+      // Serial.print(F("."));
       delay(1);
     }
     // Serial.println ("");
@@ -423,7 +514,7 @@ void loop() {
     //airSensor.begin();
     counterr++;
 
-    if (counterr > 2) {
+    if (counterr >0) {
       delay(6000);
       counterr = 0;
     }
@@ -437,7 +528,7 @@ void loop() {
    
     // Serial.println ("");
 
-    //Serial.println("Save data");
+    //Serial.println(F("Save data"));
     // if (airSensor.dataAvailable()) {
     co2read = airSensor.getCO2();
     if (counterr == 0) co2 = co2read;
@@ -449,15 +540,15 @@ void loop() {
     digitalWrite(sensorPowerPin, LOW);
     wdt_disable();  // beidzam čekot uzkaršanos
 
-    Serial.print("C:");
+    Serial.print(F("C:"));
     Serial.print(counterr);
-    Serial.print("  T:");
+    Serial.print(F("  T:"));
     Serial.print(temp);
-    Serial.print("  H:");
+    Serial.print(F("  H:"));
     Serial.print(hum);
-    Serial.print("  CO2:");
+    Serial.print(F("  CO2:"));
     Serial.print(co2);
-    Serial.print("  CO2read:");
+    Serial.print(F("  CO2read:"));
     Serial.println(co2read);
 
 
@@ -488,9 +579,11 @@ void loop() {
     strcat(sendData, ";");
     dataReady = true;
   }
+#endif
 
 
   // ************************************************* TH(SHT31)
+#ifdef SENSOR_TH
   if (strcmp(groupID, "$TH") == 0) {
     wdt_enable(WDTO_8S);
     digitalWrite(sensorPowerPin, HIGH);
@@ -532,33 +625,36 @@ void loop() {
     strcat(sendData, ";");
     dataReady = true;
   }
+#endif
 
   // ************************************************* EC(......)
-
+#ifdef SENSOR_EC
   if (strcmp(groupID, "$EC") == 0) {
     wdt_enable(WDTO_8S);
     digitalWrite(sensorPowerPin, HIGH);
     delay(2500);
     myserial.listen();
     delay(10);
-    //  Serial.println("EC start");
-    myserial.print("R");   //manuali definets, lai sataisa
+    sensorstring = "";               // sākam ar tukšu virkni (citādi nepabeigta atbilde krājas starp cikliem)
+    sensor_string_complete = false;
+    //  Serial.println(F("EC start"));
+    myserial.print(F("R"));   //manuali definets, lai sataisa
     myserial.print('\r');  //single reading
-    Serial.println("Call sensor");
-    //    while (myserial.available() == 0) {
-    //      Serial.print(".");
-    //      delay(5);
-    //    }
-    //  Serial.println("");
+    Serial.println(F("Call sensor"));
 
-    delay(500);
-    while (myserial.available() > 0) {      //if we see that the Atlas Scientific product has sent a character
-      char inchar = (char)myserial.read();  //get the char we just received
-      sensorstring += inchar;               //add the char to the var called sensorstring
-      Serial.print(inchar);
-      if (inchar == '\r') {             //if the incoming character is a <CR>
-        sensor_string_complete = true;  //set the flag
-        Serial.println("Receive Data");
+    // EZO EC mērījums aizņem ~600 ms, tāpēc gaidām līdz <CR>, bet ne ilgāk par 1500 ms
+    // (bija fiksēts delay(500) — atbilde bieži vēl nebija pienākusi)
+    unsigned long ecStart = millis();
+    while (!sensor_string_complete && millis() - ecStart < 1500) {
+      while (myserial.available() > 0) {      //if we see that the Atlas Scientific product has sent a character
+        char inchar = (char)myserial.read();  //get the char we just received
+        if (sensorstring.length() < 30) sensorstring += inchar;  //add the char to the var called sensorstring
+        Serial.print(inchar);
+        if (inchar == '\r') {             //if the incoming character is a <CR>
+          sensor_string_complete = true;  //set the flag
+          Serial.println(F("Receive Data"));
+          break;
+        }
       }
     }
     digitalWrite(sensorPowerPin, LOW);
@@ -581,7 +677,7 @@ void loop() {
     strcat(sendData, sensID);
 
     strcat(sendData, "/");
-    itoa(int(f_ec * 10), pData, DEC);
+    ltoa(long(f_ec * 10), pData, DEC);  // bija itoa(int(...)): int pārpildās, ja EC > 3276.7 µS/cm
     strcat(sendData, pData);
 
     strcat(sendData, "/");
@@ -595,17 +691,22 @@ void loop() {
     strcat(sendData, ";");
     dataReady = true;
   }
+#endif
 
   // ************************************************* PH(......)
+#ifdef SENSOR_PH
   if (strcmp(groupID, "$PH") == 0) {
-    Serial.println("Start measuring...");
+    analogReference(DEFAULT);
+    for (int i = 0; i < 5; i++) {analogRead(A1);} //clearing the ADC  (bija "int i;" — neinicializēts)
+    Serial.println(F("Start measuring..."));
     digitalWrite(sensorPowerPin, HIGH);
     delay(4000);
+    // Serial.println(analogRead(A1));
     float ph = pH.read_ph();
-    // Serial.print("pH=");
-    // Serial.println(pH);
+    Serial.print(F("pH="));
+    Serial.println(ph);
     digitalWrite(sensorPowerPin, LOW);
-
+ analogReference(INTERNAL);
     strcat(sendData, groupID);
     strcat(sendData, "/");
     strcat(sendData, sensID);
@@ -625,11 +726,13 @@ void loop() {
     strcat(sendData, ";");
     dataReady = true;
   }
+#endif
 
 
   // ************************************************* SH(soil humidity)
+#ifdef SENSOR_SH
   if (strcmp(groupID, "$SH") == 0) {
-    Serial.println("Start Communication with SoilH");
+    Serial.println(F("Start Communication with SoilH"));
     wdt_enable(WDTO_8S);
     digitalWrite(sensorPowerPin, HIGH);
     delay(100);
@@ -637,7 +740,7 @@ void loop() {
 
     bool capOk = capsense.begin(0xF, 0x6, 0x5, true);
 
-    Serial.println("Start Measuing SoilH");
+    Serial.println(F("Start Measuing SoilH"));
     unsigned long capa[CHAN_COUNT];         // variable to store data from FDC
     for (int i = 0; i < CHAN_COUNT; i++) {  // for each channel
       // ### read 28bit data
@@ -648,7 +751,7 @@ void loop() {
       frequency = frequency / 1000000;
       capacitance = 2 * 3.14159265359 * frequency;
       capacitance = capacitance * capacitance;
-      capacitance = (10 ^ 12) / (capacitance * 0.000018);
+      capacitance = (10 ^ 12) / (capacitance * 0.000018);  // UZMANĪBU: C/C++ "^" ir XOR, (10 ^ 12) == 6, nevis 10^12. Formula jāpārbauda!
       //***********************************************
       if (calibration == 1) {  //ja mēra pirmo reizi, tad palaižas kalibrācijas process
         cap_min = capacitance;
@@ -662,9 +765,12 @@ void loop() {
         cap_max = capacitance;
       }
       moisture = map(capacitance, cap_min, cap_max, 0, 100);
-      String outputstring = outputstring + "Capacitance: " + String(capacitance) + " pF, Moisture: " + String(moisture) + "%";
-      Serial.println(outputstring);
-      outputstring = "";
+      // bija: String outputstring = outputstring + ... — mainīgais izmantots savā inicializācijā (UB, var nobrukt)
+      Serial.print(F("Capacitance: "));
+      Serial.print(capacitance);
+      Serial.print(F(" pF, Moisture: "));
+      Serial.print(moisture);
+      Serial.println(F("%"));
     }
 
 
@@ -696,9 +802,10 @@ void loop() {
     strcat(sendData, ";");
     dataReady = true;
   }
+#endif
   // *************aSH**************************
   if (strcmp(groupID, "$aSH") == 0) {
-    // Serial.println("Start Communication with aSoilH");
+    // Serial.println(F("Start Communication with aSoilH"));
     analogReference(DEFAULT);
     analogRead(analogSensorPin);
     analogRead(analogSensorPin);
@@ -710,7 +817,7 @@ void loop() {
     delay(100);
     float moisture = 100 - constrain(map(analogRead(analogSensorPin), 450, 850, 0, 100), 0, 100);
     Serial.print(moisture);
-    Serial.print(" , ");
+    Serial.print(F(" , "));
     Serial.print(analogRead(analogSensorPin));
     delay(100);
     // digitalWrite(voltagePin, HIGH);
@@ -750,7 +857,7 @@ void loop() {
     digitalWrite(sensorPowerPin, HIGH);
     delay(1000);
     //float pH = read_ph(read_voltage());
-    // Serial.print("pH=");
+    // Serial.print(F("pH="));
     // Serial.println(pH);
     digitalWrite(sensorPowerPin, LOW);
 
@@ -793,36 +900,39 @@ void loop() {
     }
 
     else (sleepCorrection = sleepCorrection + targetSecond * 1000 - (epochSeconds * 1000 + epochMilliseconds));
-    //Serial.print("Correction:");
+    //Serial.print(F("Correction:"));
     //Serial.println(sleepCorrection);
     if (abs(sleepCorrection) > 15000) {
       sleepCorrection = 0;
     }
-    Serial.print("Correction:");
+    Serial.print(F("Correction:"));
     Serial.println(sleepCorrection);
 
 
 
 
 
-    sleepTime = (millis() - tmr2) + epochSeconds * 1000 + epochMilliseconds;  // laiks ms tekošajā minūtē (sūtīšanas periodā?!)
-    //    Serial.print("calcTime:");
-    //    Serial.print(millis() - tmr2);
-    //    Serial.print("  goSleepMom:");
-    //    Serial.println(sleepTime);
-    sleepTime = targetSecond * 1000 + (sendPeriodMinutes * 60 * 1000 - sleepTime) + sleepCorrection;  // +250 ms  pamošanās
-  } else {
-    sleepTime = sendPeriodMinutes * 60 * 1000 - (millis() - tmr3);
   }
 
-  if (sleepTime < 5000) sleepTime = sendPeriodMinutes * 60 * 1000 + sleepTime;
-  if (sleepTime > sendPeriodMinutes * 60 * 1000 * 2) sleepTime = sendPeriodMinutes * 20 * 1000;
+  // Aprēķins ar zīmi (long). Agrāk viss notika uint32_t, tāpēc negatīvs rezultāts
+  // pārvērtās milzīgā skaitlī un pārbaude "< 5000" to nekad nenoķēra.
+  long sleepCalc;
+  if (answRec == true) {
+    long nowInPeriod = (long)(millis() - tmr2) + epochSeconds * 1000 + epochMilliseconds;  // laiks ms tekošajā minūtē (sūtīšanas periodā?!)
+    sleepCalc = targetSecond * 1000 + (sendPeriodMinutes * 60 * 1000 - nowInPeriod) + sleepCorrection;  // +250 ms  pamošanās
+  } else {
+    sleepCalc = sendPeriodMinutes * 60 * 1000 - (long)(millis() - tmr3);
+  }
+
+  if (sleepCalc < 5000) sleepCalc = sendPeriodMinutes * 60 * 1000 + sleepCalc;
+  if (sleepCalc < 5000 || sleepCalc > sendPeriodMinutes * 60 * 1000 * 2) sleepCalc = sendPeriodMinutes * 20 * 1000;
+  sleepTime = sleepCalc;
 
   answRec = false;
-  Serial.print("Sleep Time:");
+  Serial.print(F("Sleep Time:"));
   Serial.println(sleepTime);
-  delay(10);
-  //Serial.flush();
+  Serial.flush();  // sagaidām, kamēr UART izsūta visu; delay(10) bija par īsu (9600 bodi ≈ 1 ms/simbols),
+                   // un POWERDOWN miegs pārtrauca pārraidi -> "bojāts" teksts Serial monitorā
   power.sleepDelay(sleepTime);  // <===REKUR ĪSTAIS ŠITAIS JAAEENABELO PRIEKS REAL SENSOR KODE
   // delay(sleepTime); //< == false sleep
 
@@ -837,6 +947,7 @@ void loop() {
 
 
 
+#ifdef SENSOR_EC
 void print_EC_data(void) {  //this function will pars the string
 
   char sensorstring_array[30];  //we make a char array
@@ -852,10 +963,193 @@ void print_EC_data(void) {  //this function will pars the string
   SAL = strtok(NULL, ",");                           //let's pars the array at each comma
   GRAV = strtok(NULL, ",");                          //let's pars the array at each comma
 
-  //Serial.print("EC:");                                //we now print each value we parsed separately
+  //Serial.print(F("EC:"));                                //we now print each value we parsed separately
   //Serial.println(EC);                                 //this is the EC value
 
   //Serial.println();                                   //this just makes the output easier to read
 
-  f_ec = atof(EC);  //uncomment this line to convert the char to a float
+  if (EC != NULL) f_ec = atof(EC);  //uncomment this line to convert the char to a float
 }
+#endif
+
+
+
+//********************CALIBRATION************************
+void cal_seq() {
+  Serial.println(F("calibration started! if you wish to exit calibration mode - please press reset"));
+#ifdef SENSOR_PH
+    if (pH.begin()) {
+      Serial.println(F("Loaded EEPROM"));
+  delay(100);}
+ if (strcmp(groupID, "$PH") == 0) {
+  digitalWrite(sensorPowerPin, HIGH);
+Serial.println(F("insert the pH probe in the 7pH solution, press enter to continue"));
+  while ((Serial.available() == 0) && (Serial.read() != '\n')) {Serial.read();pH.read_ph();}// wait until user has pressed enter
+   Serial.println(F("phcal7. please wait 60s for the measurements to settle"));
+   delay(60000);
+    Ph_cal_seq("CAL,7");
+  Serial.read();
+Serial.read();
+  delay(2000);
+  Serial.println(F("insert the pH probe in the 4pH solution, press enter to continue"));
+  while ((Serial.available() == 0) && (Serial.read() != '\n')) {Serial.read();pH.read_ph();}// wait until user has pressed enter
+    Serial.println(F("phcal4. please wait 60s for the measurements to settle"));
+    delay(60000);
+      Ph_cal_seq("CAL,4");
+    
+      delay(2000);
+      Serial.read();
+Serial.read();
+
+      Serial.println(F("insert the pH probe in the 10pH solution, press enter to continue"));
+  while ((Serial.available() == 0) && (Serial.read() != '\n')) {Serial.read();pH.read_ph();}// wait until user has pressed enter
+    Serial.println(F("phcal10. please wait 60s for the measurements to settle"));
+    delay(60000);
+    Ph_cal_seq("CAL,10");
+  Serial.read();
+Serial.read();
+  delay(2000);
+    Serial.println(F("and you're done!"));
+    delay(2000);
+
+
+
+
+  }
+#endif
+
+
+#ifdef SENSOR_EC
+ if (strcmp(groupID, "$EC") == 0) {
+digitalWrite(sensorPowerPin, HIGH);
+  Serial.println(F("EC test"));
+  myserial.begin(9600);      //set baud rate for the software serial port to 9600
+  sensorstring.reserve(30);  //set aside some bytes for receiving data from Atlas Scientific product
+  myserial.print(F("L,0"));     //Lai izsledz
+  myserial.print('\r');      //diodi
+while(1) { //will be exited only when reset is pressed.
+  if (Serial.available()) {                //if a string from the PC has been received in its entirety
+   String inputstring = Serial.readStringUntil(13);           //read the string until we see a <CR>
+    myserial.print(inputstring);                      //send that string to the Atlas Scientific product
+    myserial.print('\r');                             //add a <CR> to the end of the string
+    inputstring = "";                                 //clear the string
+  }
+
+  if (myserial.available() > 0) {                     //if we see that the Atlas Scientific product has sent a character
+    char inchar = (char)myserial.read();              //get the char we just received
+    sensorstring += inchar;                           //add the char to the var called sensorstring
+    if (inchar == '\r') {                             //if the incoming character is a <CR>
+      sensor_string_complete = true;                  //set the flag
+    }
+  }
+
+
+  if (sensor_string_complete == true) {               //if a string from the Atlas Scientific product has been received in its entirety
+    if (isdigit(sensorstring[0]) == false) {          //if the first character in the string is a digit
+      Serial.println(sensorstring);                   //send that string to the PC's serial monitor
+    }
+    else                                              //if the first character in the string is NOT a digit
+    {
+      print_EC_data();                                //then call this function 
+    }
+    sensorstring = "";                                //clear the string
+    sensor_string_complete = false;                   //reset the flag used to tell if we have received a completed string from the Atlas Scientific product
+  }
+}
+
+ }
+#endif
+#ifdef SENSOR_THCO2
+ if (strcmp(groupID, "$THCO2") == 0) {
+analogReference(INTERNAL);  //should be internal
+  delay(10);
+    digitalWrite(sensorPowerPin, HIGH);
+    pinMode(SDA, OUTPUT);
+    pinMode(SCL, OUTPUT);
+    digitalWrite(SDA, HIGH);
+    digitalWrite(SCL, HIGH);
+    Wire.begin();          // Sāk I2C komunikāciju no jauna
+    Wire.setClock(50000);  //pazemināts i2c atrums
+    delay(10);
+    // Serial.println ("Sensor starting");
+    while (airSensor.begin() != true) {
+      // Serial.print(F("."));
+      delay(1);
+    }
+    // Serial.println ("");
+
+    //airSensor.begin();
+
+    //airSensor.beginMeasuring();
+    // Serial.println ("Make measurments");
+while (1) {
+
+    while (airSensor.dataAvailable() != true) {
+      delay(10);
+    }
+   
+    // Serial.println ("");
+
+    //Serial.println(F("Save data"));
+    // if (airSensor.dataAvailable()) {
+    co2read = airSensor.getCO2();
+    if (counterr == 0) co2 = co2read;
+    temp = airSensor.getTemperature();
+    hum = airSensor.getHumidity();
+   
+
+    
+
+
+    Serial.print(F("  T:"));
+    Serial.print(temp);
+    Serial.print(F("  H:"));
+    Serial.print(hum);
+        Serial.print(F("  CO2read:"));
+    Serial.print(co2read);
+delay(100);
+      // ********************** VOLTAGE reading
+  delay(200);
+  digitalWrite(voltagePin, HIGH);
+  delay(200);
+  voltage = analogRead(voltageReadPin);
+  delay(20);
+  // digitalWrite(voltagePin, LOW);
+  voltage = 1.1 * 43 / 10.1 * voltage / 1023;  // Uref * R1 / R2 * ADC / 1023    33K vs 10K
+  Serial.print(F("  V:"));
+  Serial.println(voltage);
+delay(100);
+}
+    }
+#endif
+
+
+}
+
+
+
+#ifdef SENSOR_PH
+// (izņemti neizmantotie user_bytes_received, bufferlen, user_data[32])
+void Ph_cal_seq(const char* string) {
+  // (izņemts strupr(): tas mainīja virknes literāli; visas komandas jau ir ar lielajiem burtiem)
+  if (strcmp(string, "CAL,7") == 0) {
+    pH.cal_mid();                                
+    Serial.println(F("MID CALIBRATED"));
+  }
+  else if (strcmp(string, "CAL,4") == 0) {            
+    pH.cal_low();                                
+    Serial.println(F("LOW CALIBRATED"));
+  }
+  else if (strcmp(string, "CAL,10") == 0) {      
+    pH.cal_high();                               
+    Serial.println(F("HIGH CALIBRATED"));
+  }
+  else if (strcmp(string, "CAL,CLEAR") == 0) { 
+    pH.cal_clear();
+    Serial.println(F("CALIBRATION CLEARED"));
+  }
+}
+#endif
+
+
+
